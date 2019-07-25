@@ -1,12 +1,12 @@
 # Package
 
-version       = "0.3.2"
+version       = "0.4.0"
 author        = "Gooseus"
 description   = "Simple modules for working with AWS"
 license       = "MIT"
 srcDir        = "src"
 
 # Dependencies
-requires "nim >= 0.18.1", "hmac >= 0.1.4"
+requires "nim >= 0.19.6", "hmac >= 0.1.4"
 
 

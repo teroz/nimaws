@@ -19,19 +19,19 @@ suite "Test s3Client":
     client = newS3Client(creds)
 
   test "List Buckets":
-    let res = waitFor client.list_buckets()
+    let res = client.list_buckets()
     assert res.code == Http200
 
   test "List Objects":
     client = newS3Client(creds,region)
-    let res = waitFor client.list_objects(bucket)
+    let res = client.list_objects(bucket)
     assert res.code == Http200
 
   test "Put Object":
     var
       path = "files/passwd"
       payload = if fileExists(passwd): readFile(passwd) else: "some file content\nbla bla bla"
-      res = waitFor client.put_object(bucket,path,payload)
+      res = client.put_object(bucket,path,payload)
 
     assert res.code == Http200
 
@@ -40,8 +40,8 @@ suite "Test s3Client":
       path = "files/passwd"
       f: File
 
-    let res = waitFor client.get_object(bucket, path)
+    let res = client.get_object(bucket, path)
     assert res.code == Http200
-    assert md5sum.find(getMD5(waitFor res.body)) > -1
+    assert md5sum.find(getMD5(res.body)) > -1
 
     
