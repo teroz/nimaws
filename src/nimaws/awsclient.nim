@@ -8,7 +8,7 @@
     * a request proc which takes an AwsClient and the request params to handle Sigv4 signing and async dispatch
  ]#
 
-import times, tables, unicode,uri
+import times, tables, unicode,uri,net
 import strutils except toLower
 import httpclient
 import sigv4
@@ -64,8 +64,8 @@ proc request*(client:var AwsClient,params:Table):Response=
     path = params["path"]
 
   var
-    url:string
-
+    url,auth:string
+    t = -1
   if client.credentials.id.len == 0 or client.credentials.secret.len == 0:
     raise newException(EAWSCredsMissing,"Missing credentails id/secret pair")
 
@@ -93,7 +93,18 @@ proc request*(client:var AwsClient,params:Table):Response=
     client.key = create_aws_authorization(client.credentials, req, client.httpClient.headers.table, client.scope)
     client.key_expires = getTime() + initInterval(minutes=5)
   else:
-    let auth = create_aws_authorization(client.credentials[0], client.key, req, client.httpClient.headers.table, client.scope)
+    auth = create_aws_authorization(client.credentials[0], client.key, req, client.httpClient.headers.table, client.scope)
     client.httpClient.headers.add("Authorization", auth)
 
-  return client.httpClient.request(url,action,payload)
+  # this continues to be an issue even with nim 1.0.0. A workaround is to have the app catch the SIG PIPE throw by openSSL
+  # then handle the asset in /home/teroz/.choosenim/toolchains/nim-1.0.0/lib/pure/net.nim(1329, 9) 
+  # https://github.com/nim-lang/Nim/issues/9867
+  while t < 2:
+    try:
+      inc t
+      result = client.httpClient.request(url,action,payload)
+    except SSLError as e:
+      echo "AwsRequest SSL error when connected to ",client.endpoint.hostname
+      client.httpClient = newHttpClient("nimaws-sdk/0.1.1; "&defUserAgent.replace(" ","-").toLower&"; darwin/16.7.0")
+      client.httpClient.headers.add("Authorization", auth)
+  

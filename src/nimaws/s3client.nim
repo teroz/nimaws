@@ -5,12 +5,13 @@
  ]#
 
 import strutils except toLower
-import times, unicode, tables, httpclient,streams,os,strutils,uri
+import times, unicode, tables, httpclient,streams,os,strutils,uri,streams,xmlparser,xmltree
 import awsclient
 
 
 type
   S3Client* = object of AwsClient
+  
 
 proc newS3Client*(credentials:(string,string),region:string=defRegion,host:string=awsEndpt):S3Client=
   let
@@ -50,16 +51,56 @@ method put_object*(self:var S3Client,bucket,path:string,payload:string) : Respon
 
   return self.request(params)
 
-method list_objects*(self:var S3Client, bucket: string) : Response {.base,gcsafe.} =
-  let params = {
-      "bucket": bucket
-    }.toTable
+# method list_objects*(self:var S3Client, bucket: string) : Response {.base,gcsafe.} =
+#   let params = {
+#       "bucket": bucket
+#     }.toTable
 
-  return self.request(params)
+#   return self.request(params)
 
-method list_buckets*(self:var S3Client) : Response {.base,gcsafe.} =
+method list_buckets(self:var S3Client) : Response {.base,gcsafe.} =
   let params = {
       "action": "GET"
     }.toTable
 
   return self.request(params)
+
+proc parse(date:string):Datetime=
+  var 
+      c = date.find('.')
+      t:string
+  if c > -1:
+    t = date.substr(0,c-1)
+  else:
+    t = date
+    t.removeSuffix({'Z'})
+  result = parse(t,"yyyy-MM-dd'T'HH:mm:ss",utc())
+
+proc list_buckets*(client:var S3Client):seq[tuple[name:string,created:DateTime]]=
+  let 
+    params = {
+      "action": "GET"
+      }.toTable
+    res = client.request(params)
+  assert res.code == Http200
+  var doc = newStringStream(res.body)
+  for i in doc.parseXml.findAll "Bucket":
+    result.add(( name: i.child("Name").innerText,
+                       created: parse(i.child("CreationDate").innerText)))
+  doc.close()
+
+
+proc list_objects*(client:var S3Client,bucket:string):seq[tuple[name:string,created:DateTime]]=
+  let 
+    params = {
+      "bucket": bucket
+    }.toTable
+    res = client.request(params)
+  assert res.code == Http200
+  
+  var doc = newStringStream(res.body)
+  for i in doc.parseXml.findAll "Contents":
+    result.add(( name: i.child("Key").innerText,
+                        created: parse(i.child("LastModified").innerText)))
+  doc.close()
+  
