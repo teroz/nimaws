@@ -20,12 +20,12 @@ suite "Test s3Client":
 
   test "List Buckets":
     let res = client.list_buckets()
-    assert res.code == Http200
+    assert res.len > 0
 
   test "List Objects":
     client = newS3Client(creds,region)
     let res = client.list_objects(bucket)
-    assert res.code == Http200
+    assert res.len > 0
 
   test "Put Object":
     var
@@ -37,11 +37,10 @@ suite "Test s3Client":
 
   test "Get Object":
     var
-      path = "files/passwd"
-      f: File
-
-    let res = client.get_object(bucket, path)
-    assert res.code == Http200
-    assert md5sum.find(getMD5(res.body)) > -1
+      key = "files/passwd"
+      path = "/tmp/passwd"
+      
+    assert client.get_object(bucket,key,path)
+    assert md5sum.find(getMD5(readFile(path))) > -1
 
     

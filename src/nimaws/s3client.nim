@@ -26,7 +26,7 @@ proc newS3Client*(credentials:(string,string),region:string=defRegion,host:strin
     endpoint = host
   return S3Client(httpClient:httpclient, credentials:creds, scope:scope, endpoint:parseUri(endpoint),isAWS:endpoint.endsWith(awsEndpt),key:"", key_expires:getTime())
 
-method get_object*(self:var S3Client,bucket,key:string) : Response {.base.} =
+method get_object(self:var S3Client,bucket,key:string) : Response {.base.} =
   var
     path = key
   let params = {
@@ -103,4 +103,12 @@ proc list_objects*(client:var S3Client,bucket:string):seq[tuple[name:string,crea
     result.add(( name: i.child("Key").innerText,
                         created: parse(i.child("LastModified").innerText)))
   doc.close()
+
+    
+proc get_object*(client: var S3Client,bucket,key,path:string):bool=
+    let res = client.get_object(bucket, key)
+    if res.code == Http200:
+      writeFile(path,res.body)  
+      result = true
+
   
